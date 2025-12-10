@@ -1,4 +1,31 @@
 /**
+ * Validates the body of Notion webhook requests using a verification token.
+ *
+ * Refer to the [Notion webhook documentation](https://developers.notion.com/reference/webhooks#step-3-validating-event-payloads-recommended)
+ * for more information.
+ *
+ * @example Validate a request in a serverless function
+ * ```ts
+ * import { validateRequest } from "@jimmed/notion-webhook-validator"
+ *
+ * export default {
+ *   async fetch(request: Request, env: Record<string, string>) {
+ *     try {
+ *       await validateRequest(request, env.NOTION_VERIFICATION_TOKEN)
+ *     } catch {
+ *       return new Response(null, { status: 400 })
+ *     }
+ *     return new Response(null, { status: 201 })
+ *   }
+ * }
+ * ```
+ *
+ * @module notionWebhook
+ */
+
+import { encodeSignature, importKey, verifyKey } from "./utils.ts";
+
+/**
  * Validates the body of a Notion webhook request.
  *
  * @param body The body of the request to validate.
@@ -8,26 +35,16 @@
  *
  * @see https://developers.notion.com/reference/webhooks#step-3-validating-event-payloads-recommended
  */
-export async function validateNotionWebhookBody(
-	body: ArrayBuffer,
-	signature: string,
-	verificationToken: string,
+export async function validateBody(
+  body: ArrayBuffer,
+  signature: string,
+  verificationToken: string,
 ): Promise<void> {
-	const key = await crypto.subtle.importKey(
-		"raw",
-		new TextEncoder().encode(verificationToken),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign", "verify"],
-	);
-
-	const encodedSignature = signatureToBase64Uint8Array(signature);
-	const valid = await crypto.subtle.verify("HMAC", key, encodedSignature, body);
-	if (!valid) {
-		throw new Error(
-			"Notion webhook body does not match signature and verification token",
-		);
-	}
+  const key = await importKey(verificationToken);
+  const valid = await verifyKey(key, encodeSignature(signature), body);
+  if (!valid) {
+    throw new Error("Notion webhook body does not match signature");
+  }
 }
 
 /**
@@ -38,36 +55,16 @@ export async function validateNotionWebhookBody(
  * @throws if the request is missing the `X-Notion-Signature` header, or the body is not valid.
  *
  * @see https://developers.notion.com/reference/webhooks#step-3-validating-event-payloads-recommended
- *
- * @example Validate a request in a serverless function
- * ```ts
- * import { validateNotionWebhookRequest } from "./mod.ts"
- *
- * export default {
- *   async fetch(request: Request, env: Record<string, string>) {
- *     try {
- *       await validateNotionWebhookRequest(request, env.NOTION_VERIFICATION_TOKEN)
- *     } catch {
- *       return new Response(null, { status: 400 })
- *     }
- *     return new Response(null, { status: 201 })
- *   }
- * }
- * ```
  */
-export async function validateNotionWebhookRequest(
-	request: Request,
-	verificationToken: string,
+export async function validateRequest(
+  request: Request,
+  verificationToken: string,
 ): Promise<void> {
-	const signature = request.headers.get("X-Notion-Signature");
-	if (!signature) {
-		throw new Error("Notion webhook request does not have a signature header");
-	}
+  const signature = request.headers.get("X-Notion-Signature");
+  if (!signature) {
+    throw new Error("Notion webhook request does not have a signature header");
+  }
 
-	const body = await request.arrayBuffer();
-	await validateNotionWebhookBody(body, signature, verificationToken);
-}
-
-function signatureToBase64Uint8Array(signature: string): BufferSource {
-	return Uint8Array.from(atob(signature), (c) => c.charCodeAt(0));
+  const body = await request.arrayBuffer();
+  await validateBody(body, signature, verificationToken);
 }
