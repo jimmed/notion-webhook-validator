@@ -1,0 +1,8 @@
+{
+	"dependencies": {
+		"@std/assert": "npm:@jsr/std__assert@^1.0.16"
+	},
+	"devDependencies": {
+		"@zod/zod": "npm:@jsr/zod__zod@^4.3.5"
+	}
+}

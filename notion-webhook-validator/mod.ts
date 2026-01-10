@@ -20,7 +20,7 @@
  * }
  * ```
  *
- * @module notionWebhook
+ * @module notionWebhookValidator
  */
 
 import { encodeSignature, importKey, verifyKey } from "./utils.ts";
@@ -36,15 +36,15 @@ import { encodeSignature, importKey, verifyKey } from "./utils.ts";
  * @see https://developers.notion.com/reference/webhooks#step-3-validating-event-payloads-recommended
  */
 export async function validateBody(
-  body: ArrayBuffer,
-  signature: string,
-  verificationToken: string,
+	body: ArrayBuffer,
+	signature: string,
+	verificationToken: string,
 ): Promise<void> {
-  const key = await importKey(verificationToken);
-  const valid = await verifyKey(key, encodeSignature(signature), body);
-  if (!valid) {
-    throw new Error("Notion webhook body does not match signature");
-  }
+	const key = await importKey(verificationToken);
+	const valid = await verifyKey(key, encodeSignature(signature), body);
+	if (!valid) {
+		throw new Error("Notion webhook body does not match signature");
+	}
 }
 
 /**
@@ -57,14 +57,14 @@ export async function validateBody(
  * @see https://developers.notion.com/reference/webhooks#step-3-validating-event-payloads-recommended
  */
 export async function validateRequest(
-  request: Request,
-  verificationToken: string,
+	request: Request,
+	verificationToken: string,
 ): Promise<void> {
-  const signature = request.headers.get("X-Notion-Signature");
-  if (!signature) {
-    throw new Error("Notion webhook request does not have a signature header");
-  }
+	const signature = request.headers.get("X-Notion-Signature");
+	if (!signature) {
+		throw new Error("Notion webhook request does not have a signature header");
+	}
 
-  const body = await request.arrayBuffer();
-  await validateBody(body, signature, verificationToken);
+	const body = await request.arrayBuffer();
+	await validateBody(body, signature, verificationToken);
 }
